@@ -52,7 +52,8 @@ python -m venv .venv
 source .venv/bin/activate   # Windows: .venv\Scripts\activate
 Install dependencies
 pip install -r requirements.txt
-📌 3. Dataset Requirements
+
+# 📌 3. Dataset Requirements
 
 Dataset must be a CSV with the following columns:
 
@@ -63,7 +64,7 @@ Example:
 text,label
 "Congratulations! You won a prize",spam
 "Hello, are we still meeting?",ham
-📌 4. Train Models
+# 📌 4. Train Models
 Train all models (LR, NB, SVM)
 python -m src.train --dataset data/sms_spam_no_header.csv --model all
 Train a specific model
@@ -74,14 +75,14 @@ models/
     nb_model.pkl
     svm_model.pkl
     vectorizer.pkl
-📌 5. Use CLI
+# 📌 5. Use CLI
 Predict a single text
 python cli/spam_cli.py predict --model lr --text "Free prize now!!!"
 Evaluate model on CSV
 python cli/spam_cli.py evaluate --model nb --csv data/sms_spam_no_header.csv
 List saved models
 python cli/spam_cli.py list
-📌 6. Run Streamlit Web App
+# 📌 6. Run Streamlit Web App
 streamlit run streamlit_app/app.py
 Features include:
 
@@ -94,7 +95,7 @@ Interactive model selection (LR / NB / SVM)
 Confusion matrix heatmap
 
 Display of precision, recall, F1, AUC
-📌 7. OpenSpec Workflow (Required by Course)
+# 📌 7. OpenSpec Workflow (Required by Course)
 
 This project uses the Spec-Driven Development method:
 
