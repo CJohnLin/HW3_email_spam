@@ -1,5 +1,9 @@
 # 2025ML-spamEmail — Spam Classification (OpenSpec + Streamlit + ML Pipeline)
 
+## 🌐 Streamlit Demo (Click to Open)
+👉 https://hw3emailspam-qwkwfgqzaiqg9ezjxkut42.streamlit.app/
+
+
 This project implements an end-to-end **spam classification system** featuring:
 
 - Scikit-learn models (Logistic Regression / Naïve Bayes / SVM)
