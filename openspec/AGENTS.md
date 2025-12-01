@@ -1,1 +1,0 @@
-AGENTS workflow trace: created project, proposal, implemented src and web and notebook.

@@ -1,1 +1,0 @@
-Proposal: add preprocessing, train/evaluate, streamlit UI.
