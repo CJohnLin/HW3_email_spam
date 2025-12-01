@@ -10,7 +10,20 @@ from sklearn.metrics import (
     roc_curve,
     auc
 )
+
+# -----------------------------
+# 修正 Streamlit Cloud import 問題
+# -----------------------------
+import sys
+import os
+
+# 取得 web/ 的上層，也就是整個 repo 的根目錄
+REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if REPO_ROOT not in sys.path:
+    sys.path.insert(0, REPO_ROOT)
+
 from src.preprocessing import clean_text
+
 
 # -----------------------------
 # Streamlit Page Config
@@ -20,6 +33,7 @@ st.set_page_config(
     page_icon="📧",
     layout="wide"
 )
+
 
 # -----------------------------
 # Sidebar
@@ -33,22 +47,26 @@ model_paths = {
 }
 
 model_choice = st.sidebar.selectbox("選擇模型", list(model_paths.keys()))
-model = joblib.load(model_paths[model_choice])
 
-st.sidebar.markdown("---")
-st.sidebar.markdown("📂 **批次預測**")
-uploaded_csv = st.sidebar.file_uploader("上傳 CSV（需包含 text 欄位）", type=["csv"])
+# 載入模型
+if os.path.exists(model_paths[model_choice]):
+    model = joblib.load(model_paths[model_choice])
+else:
+    st.sidebar.error(f"找不到模型檔案：{model_paths[model_choice]}")
+    st.stop()
+
+uploaded_csv = st.sidebar.file_uploader("📂 上傳 CSV（需包含 text 欄位）", type=["csv"])
 
 
 # -----------------------------
 # Title
 # -----------------------------
 st.title("📧 Spam Classification System")
-st.markdown("使用機器學習模型即時判斷簡訊是否為 **垃圾訊息（SPAM）** 或 **正常訊息（HAM）**。")
+st.markdown("使用 ML 模型即時判斷簡訊是否為 **垃圾訊息 (SPAM)** 或 **正常訊息 (HAM)**。")
 
 
 # -----------------------------
-# Section 1 — Single Prediction
+# Single Prediction
 # -----------------------------
 st.markdown("## 🔍 單筆訊息預測")
 
@@ -69,7 +87,6 @@ if st.button("✨ 進行預測", use_container_width=True):
         if hasattr(model, "predict_proba"):
             prob = model.predict_proba([clean])[0][1]
 
-        # Display Result
         st.markdown("### 🎯 預測結果")
         if pred == 1:
             st.error("🔴 **SPAM — 垃圾訊息**")
@@ -81,7 +98,7 @@ if st.button("✨ 進行預測", use_container_width=True):
 
 
 # -----------------------------
-# Section 2 — Batch Prediction
+# Batch CSV Prediction
 # -----------------------------
 st.markdown("---")
 st.markdown("## 📂 批次 CSV 預測")
@@ -97,10 +114,8 @@ if uploaded_csv:
         if hasattr(model, "predict_proba"):
             df["spam_prob"] = model.predict_proba(df["text_clean"])[:, 1]
 
-        # Display table
-        st.dataframe(df[["text", "pred"] + (["spam_prob"] if "spam_prob" in df else [])])
+        st.dataframe(df)
 
-        # Download result
         csv_output = df.to_csv(index=False).encode("utf-8-sig")
         st.download_button(
             label="⬇️ 下載預測結果",
@@ -111,14 +126,19 @@ if uploaded_csv:
 
 
 # -----------------------------
-# Section 3 — Model Metrics
+# Model Evaluation
 # -----------------------------
 st.markdown("---")
 st.markdown("## 📊 模型效能分析")
 
-# Load dataset (for evaluation)
-df_raw = pd.read_csv("Chapter03/datasets/sms_spam_no_header.csv",
-                     header=None, names=["label", "text"])
+# 載入完整資料集
+dataset_path = "Chapter03/datasets/sms_spam_no_header.csv"
+
+if not os.path.exists(dataset_path):
+    st.error(f"找不到資料集：{dataset_path}")
+    st.stop()
+
+df_raw = pd.read_csv(dataset_path, header=None, names=["label", "text"])
 df_raw["label"] = df_raw["label"].map({"ham": 0, "spam": 1})
 df_raw["text_clean"] = df_raw["text"].apply(clean_text)
 
@@ -136,14 +156,16 @@ st.markdown("### 🔵 混淆矩陣")
 
 cm = confusion_matrix(y_true, y_pred)
 fig, ax = plt.subplots(figsize=(5, 4))
-sns.heatmap(cm, annot=True, cmap="Blues", fmt="d", xticklabels=["HAM", "SPAM"],
-            yticklabels=["HAM", "SPAM"], ax=ax)
+sns.heatmap(cm, annot=True, cmap="Blues", fmt="d",
+            xticklabels=["HAM", "SPAM"],
+            yticklabels=["HAM", "SPAM"],
+            ax=ax)
 plt.xlabel("預測")
 plt.ylabel("真實")
 st.pyplot(fig)
 
 
-# ROC Curve (if supported)
+# ROC Curve（若模型支援）
 if hasattr(model, "decision_function") or hasattr(model, "predict_proba"):
 
     st.markdown("### 📈 ROC Curve")
@@ -164,17 +186,3 @@ if hasattr(model, "decision_function") or hasattr(model, "predict_proba"):
     ax2.set_title("ROC Curve")
     ax2.legend(loc="lower right")
     st.pyplot(fig2)
-
-else:
-    st.info("此模型不支援 ROC Curve 計算。")
-
-
-# -----------------------------
-# Section 4 — Model Info
-# -----------------------------
-st.markdown("---")
-st.markdown("## 🧠 模型資訊")
-
-st.write(f"目前使用的模型：**{model_choice}**")
-st.write(f"模型檔案位置：`{model_paths[model_choice]}`")
-
