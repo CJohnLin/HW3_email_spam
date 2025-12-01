@@ -1,1 +1,0 @@
-Proposal to adapt app to user model names.
