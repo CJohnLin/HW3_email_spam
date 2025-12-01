@@ -1,62 +1,41 @@
-# src/train.py
-import argparse
-from typing import Optional
-from src.preprocessing import load_dataset, train_val_split, vectorize_text, save_vectorizer, clean_text
-from src.models import build_lr, build_nb, build_svm, save_model
-import numpy as np
-from sklearn.metrics import classification_report
-import os
+import pandas as pd
+import joblib
+from sklearn.model_selection import train_test_split
+from sklearn.pipeline import Pipeline
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import MultinomialNB
+from sklearn.svm import LinearSVC
+from src.preprocessing import preprocess_df
 
-MODEL_MAP = {
-    "lr": ("lr_model.pkl", build_lr),
-    "nb": ("nb_model.pkl", build_nb),
-    "svm": ("svm_model.pkl", build_svm),
-}
+DATA_PATH = "Chapter03/datasets/sms_spam_no_header.csv"
 
-def train_single(model_key: str, X_train_texts, y_train, X_val_texts=None, y_val=None, models_dir: str = "models"):
-    model_name, builder = MODEL_MAP[model_key]
-    vect, X_train, X_val = vectorize_text(X_train_texts, X_val_texts)
-    model = builder()
-    model.fit(X_train, y_train)
-    os.makedirs(models_dir, exist_ok=True)
-    save_model(model, os.path.join(models_dir, model_name))
-    save_vectorizer(vect, os.path.join(models_dir, "vectorizer.pkl"))
-    if X_val_texts is not None and y_val is not None:
-        y_pred = model.predict(X_val)
-        print(f"=== Validation report for {model_key} ===")
-        print(classification_report(y_val, y_pred))
-    else:
-        print(f"Trained {model_key} and saved to {models_dir}/{model_name}")
+def load_dataset():
+    df = pd.read_csv(DATA_PATH, header=None, names=["label", "text"])
+    df["label"] = df["label"].map({"ham": 0, "spam": 1})
+    return preprocess_df(df)
 
-def train_all(dataset_path: str, models_dir: str = "models"):
-    df = load_dataset(dataset_path)
-    X_train_texts, X_val_texts, y_train, y_val = train_val_split(df)
-    # train each model using same vectorizer (fit on train only)
-    from src.preprocessing import vectorize_text
-    vect, X_train, X_val = vectorize_text(X_train_texts, X_val_texts)
-    save_vectorizer(vect, os.path.join(models_dir, "vectorizer.pkl"))
-    for key, (_, builder) in MODEL_MAP.items():
-        model = builder()
-        model.fit(X_train, y_train)
-        save_model(model, os.path.join(models_dir, MODEL_MAP[key][0]))
-        y_pred = model.predict(X_val)
-        print(f"--- {key} ---")
-        from sklearn.metrics import classification_report
-        print(classification_report(y_val, y_pred))
+def train_models():
+    df = load_dataset()
+    X_train, X_test, y_train, y_test = train_test_split(
+        df["text_clean"], df["label"], test_size=0.2, random_state=42, stratify=df["label"]
+    )
 
-def main():
-    parser = argparse.ArgumentParser(description="Train spam models")
-    parser.add_argument("--dataset", type=str, required=True, help="path to CSV dataset (columns: text,label)")
-    parser.add_argument("--model", type=str, default="all", choices=["all", "lr", "nb", "svm"])
-    parser.add_argument("--models-dir", type=str, default="models")
-    args = parser.parse_args()
-    os.makedirs(args.models_dir, exist_ok=True)
-    if args.model == "all":
-        train_all(args.dataset, args.models_dir)
-    else:
-        df = load_dataset(args.dataset)
-        X_train_texts, X_val_texts, y_train, y_val = train_val_split(df)
-        train_single(args.model, X_train_texts, y_train, X_val_texts, y_val, args.models_dir)
+    models = {
+        "logreg": LogisticRegression(max_iter=2000),
+        "nb": MultinomialNB(),
+        "svm": LinearSVC()
+    }
+
+    for name, clf in models.items():
+        pipe = Pipeline([
+            ("tfidf", TfidfVectorizer(ngram_range=(1,2))),
+            ("clf", clf)
+        ])
+
+        pipe.fit(X_train, y_train)
+        joblib.dump(pipe, f"models/{name}.joblib")
+        print(f"Saved: models/{name}.joblib")
 
 if __name__ == "__main__":
-    main()
+    train_models()
